@@ -9,7 +9,6 @@ import {
   MoreVertical,
   ShieldCheck,
   UserCog,
-  User as UserIcon,
   Shield,
   Edit3,
   MessageSquare,
@@ -23,7 +22,12 @@ import { useUsers } from '@/lib/useUsers';
 import AddUserModal from '@/components/AddUserModal';
 import type { User } from '@/lib/types';
 
-export default function ITUsers() {
+interface ITUsersProps {
+  /** Rendered inside the Settings page: use a section header and stack the detail panel. */
+  embedded?: boolean;
+}
+
+export default function ITUsers({ embedded = false }: ITUsersProps) {
   const { users, loading, error, refreshUsers } = useUsers();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,8 +58,8 @@ export default function ITUsers() {
   });
 
   const totalUsers = users.length;
-  const agentsCount = users.filter(u => u.role === 'Technician' || u.role === 'Admin').length;
-  const requestersCount = users.filter(u => u.role === 'Employee').length;
+  const techniciansCount = users.filter(u => u.role === 'Technician').length;
+  const adminsCount = users.filter(u => u.role === 'Admin').length;
   const activeUsersCount = users.length; // Assuming all are active for now
 
   const totalFilteredUsers = filteredUsers.length;
@@ -66,14 +70,18 @@ export default function ITUsers() {
   const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className={embedded ? 'flex flex-col gap-6' : 'flex flex-col lg:flex-row gap-6'}>
       {/* Main Content */}
       <div className="flex-1 space-y-6 min-w-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Users</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage users and their access to the IT Support system</p>
+            {embedded ? (
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Users</h2>
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Users</h1>
+            )}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage IT staff accounts and their access to the IT Support system</p>
           </div>
           <div className="flex items-center gap-3">
             <button className="flex items-center gap-2 px-4 py-2 liquid-card rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
@@ -93,8 +101,8 @@ export default function ITUsers() {
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Users" value={totalUsers.toString()} trend="+" icon={Users} color="text-blue-600" bg="bg-blue-50" />
-          <StatCard title="IT Staff" value={agentsCount.toString()} trend="=" icon={UserCog} color="text-green-600" bg="bg-green-50" />
-          <StatCard title="Employees" value={requestersCount.toString()} trend="+" icon={UserIcon} color="text-purple-600" bg="bg-purple-50" />
+          <StatCard title="Technicians" value={techniciansCount.toString()} trend="=" icon={UserCog} color="text-green-600" bg="bg-green-50" />
+          <StatCard title="Admins" value={adminsCount.toString()} trend="=" icon={Shield} color="text-purple-600" bg="bg-purple-50" />
           <StatCard title="Active Users" value={activeUsersCount.toString()} trend="=" icon={ShieldCheck} color="text-blue-600" bg="bg-blue-50" />
         </div>
 
@@ -126,7 +134,6 @@ export default function ITUsers() {
                   <option value="All">All Roles</option>
                   <option value="Admin">Admin</option>
                   <option value="Technician">Technician</option>
-                  <option value="Employee">Employee</option>
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -254,7 +261,7 @@ export default function ITUsers() {
 
       {/* Right Sidebar - User Details */}
       {selectedUser && (
-        <div className="w-full lg:w-80 liquid-card rounded-xl flex flex-col shrink-0 self-start sticky top-20">
+        <div className={`liquid-card rounded-xl flex flex-col shrink-0 self-start ${embedded ? 'w-full' : 'w-full lg:w-80 sticky top-20'}`}>
           {/* Profile Header */}
           <div className="p-6 pb-4 flex flex-col items-center text-center relative border-b border-gray-100 dark:border-gray-700/50">
             <button className="absolute top-4 right-4 text-gray-400 dark:text-gray-500 hover:text-gray-600"><MoreVertical className="w-4 h-4" /></button>
@@ -425,8 +432,7 @@ function RoleBadge({ role }: { role: string }) {
   const getColors = () => {
     switch(role) {
       case 'Admin': return 'text-purple-600 border-purple-200 bg-purple-50';
-      case 'Agent': return 'text-blue-600 border-blue-200 bg-blue-50';
-      case 'Requester': return 'text-gray-600 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50';
+      case 'Technician': return 'text-blue-600 border-blue-200 bg-blue-50';
       default: return 'text-gray-600 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50';
     }
   };

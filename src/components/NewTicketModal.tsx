@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { X, Loader2, Upload } from 'lucide-react';
-import { createTicket } from '@/lib/supabase';
+import { createTicket, fetchCompanies } from '@/lib/supabase';
 import { compressImage } from '@/lib/utils';
+import type { Company } from '@/lib/types';
 
 interface NewTicketModalProps {
   isOpen: boolean;
@@ -20,6 +21,19 @@ export default function NewTicketModal({ isOpen, onClose, onSuccess }: NewTicket
     priority_level: 'P3 - Medium',
     issue_description: '',
   });
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetchCompanies()
+      .then((data) => {
+        setCompanies(data as Company[]);
+        setCompanyId((prev) => prev || (data[0]?.id ?? ''));
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -55,28 +69,18 @@ export default function NewTicketModal({ isOpen, onClose, onSuccess }: NewTicket
     setError(null);
 
     try {
-      // In a real app, you'd get the reporter_id from the current auth session
-      // and the company_id from the user's profile.
-      // For this demo, we'll use hardcoded UUIDs or we should fetch them first.
-      // Since we don't have auth, we can just omit reporter_id (it's nullable) or mock it.
-      // We do need a company_id though since it's NOT NULL. Let's assume there's a company with ID we can fetch, 
-      // or we can just fetch the first company and use it.
-      
-      const { fetchCompanies } = await import('@/lib/supabase');
-      const companies = await fetchCompanies();
-      
-      if (companies.length === 0) {
-        throw new Error("No companies found in database. Please run seed script first.");
+      // reporter_id stays null: this modal is used by IT staff recording a ticket
+      // on someone's behalf, and the reporter is set later from the ticket detail.
+      if (!companyId) {
+        throw new Error('Pilih perusahaan terlebih dahulu.');
       }
-      
-      const company_id = companies[0].id;
-      
+
       // Generate a simple ticket number
       const ticketNumber = `INC-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
       await createTicket({
         ticket_number: ticketNumber,
-        company_id,
+        company_id: companyId,
         issue_title: formData.issue_title,
         issue_category: formData.issue_category as any,
         issue_subcategory: formData.issue_subcategory,
@@ -137,6 +141,21 @@ export default function NewTicketModal({ isOpen, onClose, onSuccess }: NewTicket
                 placeholder="Brief summary of the issue"
                 className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Company <span className="text-red-500">*</span></label>
+              <select
+                required
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="">Pilih perusahaan...</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

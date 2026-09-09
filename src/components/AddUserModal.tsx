@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Loader2, Save } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import type { Role } from '@/lib/types';
+import { supabase, fetchCompanies } from '@/lib/supabase';
+import type { Company, ITRole } from '@/lib/types';
 
 interface AddUserModalProps {
   isOpen: boolean;
@@ -13,11 +13,23 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('Employee');
+  const [role, setRole] = useState<ITRole>('Technician');
   const [division, setDivision] = useState('Lainnya');
   const [contactNumber, setContactNumber] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetchCompanies()
+      .then((data) => {
+        setCompanies(data as Company[]);
+        setCompanyId((prev) => prev || (data[0]?.id ?? ''));
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -27,20 +39,11 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
     setError(null);
     
     try {
-      // Create user record in users table
-      // (Assuming company_id matches the first company for testing)
-      const { data: companyData, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .single();
-        
-      if (companyError) throw companyError;
-
+      // Create IT staff record in users table (employees live in the employees table)
       const { error: insertError } = await supabase
         .from('users')
         .insert({
-          company_id: companyData.id,
+          company_id: companyId,
           full_name: fullName,
           email,
           role,
@@ -53,7 +56,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
       // Reset form
       setFullName('');
       setEmail('');
-      setRole('Employee');
+      setRole('Technician');
       setDivision('Lainnya');
       setContactNumber('');
       
@@ -75,7 +78,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
       {/* Modal */}
       <div className="liquid-panel rounded-xl shadow-xl w-full max-w-lg relative z-10 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700/50 shrink-0">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New User</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add IT User</h2>
           <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -96,7 +99,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Agung Pratama"
+                placeholder="e.g. Apeng"
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" 
               />
             </div>
@@ -113,15 +116,29 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Company <span className="text-red-500">*</span></label>
+              <select
+                required
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              >
+                <option value="">Pilih perusahaan...</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">Role <span className="text-red-500">*</span></label>
                 <select 
                   value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
+                  onChange={(e) => setRole(e.target.value as ITRole)}
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
-                  <option value="Employee">Employee (Requester)</option>
                   <option value="Technician">Technician (Agent)</option>
                   <option value="Admin">Admin</option>
                 </select>

@@ -6,32 +6,16 @@ import type {
   Ticket,
   TicketStatus,
   User,
+  Employee,
 } from './types';
 
 export const MOCK_COMPANIES: Company[] = [
-  { id: 'comp-tsi', company_name: 'PT TSI Sertifikasi International' },
-  { id: 'comp-dms', company_name: 'PT Dharma Mitra Solusi' },
+  { id: 'comp-tsi', company_name: 'PT. TSI Sertifikasi Internasional' },
+  { id: 'comp-dms', company_name: 'PT. Dharma Mitra Solusi' },
 ];
 
+/** IT staff — the people who log into the dashboard. */
 export const MOCK_USERS: User[] = [
-  {
-    id: 'user-1',
-    company_id: 'comp-tsi',
-    full_name: 'Andi Pratama',
-    email: 'andi.pratama@tsi.co.id',
-    division: 'Sertifikasi',
-    role: 'Employee',
-    contact_number: '6281234567001',
-  },
-  {
-    id: 'user-2',
-    company_id: 'comp-tsi',
-    full_name: 'Siti Rahayu',
-    email: 'siti.rahayu@tsi.co.id',
-    division: 'Administrasi',
-    role: 'Employee',
-    contact_number: '6281234567002',
-  },
   {
     id: 'user-3',
     company_id: 'comp-tsi',
@@ -42,24 +26,6 @@ export const MOCK_USERS: User[] = [
     contact_number: '6281234567003',
   },
   {
-    id: 'user-4',
-    company_id: 'comp-dms',
-    full_name: 'Dewi Lestari',
-    email: 'dewi.lestari@dms.co.id',
-    division: 'Operasional',
-    role: 'Employee',
-    contact_number: '6281234567004',
-  },
-  {
-    id: 'user-5',
-    company_id: 'comp-dms',
-    full_name: 'Rudi Hartono',
-    email: 'rudi.hartono@dms.co.id',
-    division: 'Keuangan',
-    role: 'Employee',
-    contact_number: '6281234567005',
-  },
-  {
     id: 'user-6',
     company_id: 'comp-dms',
     full_name: 'Maya Sari',
@@ -67,6 +33,42 @@ export const MOCK_USERS: User[] = [
     division: 'IT Support',
     role: 'Technician',
     contact_number: '6281234567006',
+  },
+];
+
+/** Company employees — the people who report tickets. They do not log in. */
+export const MOCK_EMPLOYEES: Employee[] = [
+  {
+    id: 'emp-1',
+    company_id: 'comp-tsi',
+    full_name: 'Andi Pratama',
+    email: 'andi.pratama@tsi.co.id',
+    division: 'Sertifikasi',
+    contact_number: '6281234567001',
+  },
+  {
+    id: 'emp-2',
+    company_id: 'comp-tsi',
+    full_name: 'Siti Rahayu',
+    email: 'siti.rahayu@tsi.co.id',
+    division: 'Administrasi',
+    contact_number: '6281234567002',
+  },
+  {
+    id: 'emp-4',
+    company_id: 'comp-dms',
+    full_name: 'Dewi Lestari',
+    email: 'dewi.lestari@dms.co.id',
+    division: 'Operasional',
+    contact_number: '6281234567004',
+  },
+  {
+    id: 'emp-5',
+    company_id: 'comp-dms',
+    full_name: 'Rudi Hartono',
+    email: 'rudi.hartono@dms.co.id',
+    division: 'Keuangan',
+    contact_number: '6281234567005',
   },
 ];
 
@@ -170,8 +172,8 @@ function genTickets(): Ticket[] {
       id: `ticket-${i + 1}`,
       ticket_number: genTicketNumber(i),
       company_id: pick(MOCK_COMPANIES, i).id,
-      reporter_id: pick(MOCK_USERS.filter((u) => u.role === 'Employee'), i).id,
-      assignee_id: status === 'Open' ? null : pick(MOCK_USERS.filter((u) => u.role === 'Technician'), i).id,
+      reporter_id: pick(MOCK_EMPLOYEES, i).id,
+      assignee_id: status === 'Open' ? null : pick(MOCK_USERS, i).id,
       reported_via: pick(channels, i + 2),
       issue_title: pick(catData.titles, i),
       issue_description: `Pengguna melaporkan kendala terkait ${cat.toLowerCase()}. ${

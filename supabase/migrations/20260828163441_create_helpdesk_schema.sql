@@ -5,7 +5,7 @@ Creates the full relational schema for the IT Helpdesk system including
 companies, users, tickets, and supporting infrastructure.
 
 1. New Tables
-- `companies`: Stores the two companies (PT TSI, PT Dharma Mitra Solusi)
+- `companies`: Operating companies in the group (open-ended — see 20260907140000_set_companies.sql)
 - `users`: Employees and IT technicians belonging to a company
 - `tickets`: IT support complaint tickets with full lifecycle tracking
 

@@ -6,6 +6,7 @@ import {
   Ticket, 
   Clock, 
   Users, 
+  UserCog,
   Folder, 
   List, 
   Plug, 
@@ -19,8 +20,10 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../lib/useSettings';
+import ITUsers from './ITUsers';
 const SETTINGS_MENU = [
   { id: 'general', icon: Settings, label: 'General', desc: 'Basic system settings' },
+  { id: 'users', icon: UserCog, label: 'Users', desc: 'Manage IT staff accounts' },
   { id: 'email', icon: Mail, label: 'Email Notifications', desc: 'Manage email alerts' },
   { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp Notifications', desc: 'Manage WhatsApp alerts' },
   { id: 'ticket', icon: Ticket, label: 'Ticket Settings', desc: 'Configure ticket behavior' },
@@ -230,7 +233,9 @@ export default function ITSettings() {
               </div>
             )}
             
-            {activeTab !== 'general' && (
+            {activeTab === 'users' && <ITUsers embedded />}
+
+            {activeTab !== 'general' && activeTab !== 'users' && (
               <div className="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500">
                 <p>Settings content for {SETTINGS_MENU.find(m => m.id === activeTab)?.label} goes here.</p>
               </div>

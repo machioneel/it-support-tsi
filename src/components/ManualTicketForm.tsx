@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Ticket, TicketStatus, PriorityLevel, IssueCategory, ReportedVia } from '@/lib/types';
 import { X, Save, Building2, User as UserIcon, Phone, Mail, Tag } from 'lucide-react';
-import { createTicket, fetchCompanies, fetchUsers } from '@/lib/supabase';
-import type { Company, User } from '@/lib/types';
+import { createTicket, fetchCompanies, fetchEmployees } from '@/lib/supabase';
+import type { Company, Employee } from '@/lib/types';
 
 interface Props {
   onClose: () => void;
@@ -16,7 +16,7 @@ const CHANNELS: ReportedVia[] = ['Web Portal', 'WhatsApp Direct', 'Phone Call', 
 
 export default function ManualTicketForm({ onClose, onCreated }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [companyId, setCompanyId] = useState('');
   const [reporterId, setReporterId] = useState('');
   const [channel, setChannel] = useState<ReportedVia>('Phone Call');
@@ -34,7 +34,7 @@ export default function ManualTicketForm({ onClose, onCreated }: Props) {
 
   useEffect(() => {
     fetchCompanies().then(setCompanies).catch(() => {});
-    fetchUsers().then(setUsers).catch(() => {});
+    fetchEmployees().then(setEmployees).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function ManualTicketForm({ onClose, onCreated }: Props) {
     };
   }, [onClose]);
 
-  const filteredUsers = users.filter((u) => u.company_id === companyId);
+  const filteredEmployees = employees.filter((e) => e.company_id === companyId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,9 +141,9 @@ export default function ManualTicketForm({ onClose, onCreated }: Props) {
                   disabled={!companyId}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white dark:bg-gray-800 disabled:opacity-50"
                 >
-                  <option value="">Pilih user...</option>
-                  {filteredUsers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.full_name} — {u.division}</option>
+                  <option value="">Pilih karyawan...</option>
+                  {filteredEmployees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.full_name} — {e.division}</option>
                   ))}
                 </select>
               </div>

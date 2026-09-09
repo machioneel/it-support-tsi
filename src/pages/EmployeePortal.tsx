@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail, Upload, X, CheckCircle2, Loader2, LifeBuoy, Search, FileText, Eye, ChevronRight, ShieldCheck, Headphones } from 'lucide-react';
-import { supabase, checkEmail, createTicket, uploadAttachment } from '@/lib/supabase';
+import { supabase, checkEmployeeEmail, createTicket, uploadAttachment } from '@/lib/supabase';
 import { compressImage } from '@/lib/utils';
 import { useArticles } from '@/lib/useArticles';
-import type { Company, User, Article } from '@/lib/types';
+import type { Company, Employee, Article } from '@/lib/types';
 import ArticleModal from '@/components/ArticleModal';
 
 
@@ -13,7 +13,7 @@ export default function EmployeePortal() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Employee | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,7 +60,7 @@ export default function EmployeePortal() {
     setLoading(true);
     setError('');
     try {
-      const found = await checkEmail(email);
+      const found = await checkEmployeeEmail(email);
       if (found) {
         setUser(found);
         const { data: comp } = await supabase

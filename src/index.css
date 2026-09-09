@@ -136,3 +136,117 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ---------------------------------------------------------------------------
+   Printing. Only the element marked .print-area reaches paper; everything else
+   (modal chrome, the app behind it) is hidden.
+
+   The sheet prints in NORMAL FLOW. An earlier version pulled it out with
+   position:absolute, which produced a blank page: once the .no-print children
+   were removed the dialog card had no content left, collapsed to zero height,
+   and its overflow:hidden clipped the absolutely positioned sheet away. Normal
+   flow is also what lets a document longer than one page paginate at all.
+
+   For that to work the dialog chrome must not clip or constrain, hence
+   .print-shell, and the app behind must take no space, hence #root.
+   --------------------------------------------------------------------------- */
+@page {
+  size: A4;
+  margin: 16mm;
+}
+
+/* A fleet list is twelve columns wide; portrait would squeeze it unreadably.
+   The top margin is larger than the others so the letterhead on page 1 and the
+   repeated column headings on every later page both keep clear of the edge. */
+@page renewal {
+  size: A4 landscape;
+  margin: 18mm 12mm 12mm;
+}
+
+@media print {
+  /* The application takes no space at all, so the sheet starts on page 1. */
+  #root {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  /* Every wrapper between <body> and the sheet: the fixed, scrollable overlay
+     and the width-limited dialog card. Neutralised so neither clips the sheet
+     nor caps it at one viewport. */
+  .print-shell {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .print-area {
+    position: static;
+    width: auto;
+    margin: 0;
+    /* Air at the top so the letterhead never sits against the paper edge when
+       the browser margin preset is "Minimum", which overrides @page entirely.
+       Kept small so it costs nothing at the standard preset. */
+    padding: 6mm 0 0;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Browsers drop backgrounds when printing. The table headers and the
+     letterhead rule carry meaning on an official document, so keep them. */
+  .print-area,
+  .print-area * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-landscape {
+    page: renewal;
+    /* Overrides the 6mm on .print-area — a landscape sheet is shorter, so the
+       letterhead sits closer to the top edge and needs more air. */
+    padding-top: 8mm;
+  }
+
+  /* A list long enough to run onto a second page needs its column headings
+     repeated there, otherwise page 2 is a wall of unlabelled numbers. */
+  .print-area thead {
+    display: table-header-group;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+  /* Keep signature blocks and table rows from splitting across pages */
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

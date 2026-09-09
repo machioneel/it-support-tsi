@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Home, Ticket, BookOpen, Users, BarChart3, Settings, Moon } from 'lucide-react';
+import { Home, Ticket, BookOpen, Users, BarChart3, Settings, Moon, Monitor } from 'lucide-react';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -17,8 +17,8 @@ export default function Sidebar({ sidebarOpen, isDarkMode, setIsDarkMode, pathna
       <Link
         to={to}
         className={`group relative flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 liquid-nav-item ${active
-            ? 'liquid-nav-item-active text-blue-700 dark:text-blue-300'
-            : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+          ? 'liquid-nav-item-active text-blue-700 dark:text-blue-300'
+          : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
           } ${isSubItem ? 'ml-2' : ''}`}
       >
         <div className="flex items-center gap-3">
@@ -65,8 +65,9 @@ export default function Sidebar({ sidebarOpen, isDarkMode, setIsDarkMode, pathna
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scrollbar-thin">
         <NavItem to="/dashboard" icon={Home} label="Dashboard" />
         <NavItem to="/tickets" icon={Ticket} label="Tickets" />
+        <NavItem to="/assets" icon={Monitor} label="IT Assets" />
         <NavItem to="/knowledge-base" icon={BookOpen} label="Knowledge Base" />
-        <NavItem to="/users" icon={Users} label="Users" />
+        <NavItem to="/employees" icon={Users} label="Employee" />
         <NavItem to="/reports" icon={BarChart3} label="Reports" />
         <NavItem to="/settings" icon={Settings} label="Settings" />
       </div>

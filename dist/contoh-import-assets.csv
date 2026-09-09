@@ -1,0 +1,9 @@
+asset_tag,asset_name,category,asset_type,brand,model,serial_number,condition,status,company,location,purchase_cost,purchase_date
+TSI-LTP-010,Lenovo ThinkPad T14,laptop,Hardware,Lenovo,T14 Gen 3,PF3ABC12,good,in_use,PT. TSI Sertifikasi Internasional,Ad Premier,18500000,2026-01-15
+TSI-LTP-011,Asus Zenbook 14,laptop,Hardware,Asus,UX3402,M2N0CV19W1,good,active,PT. TSI Sertifikasi Internasional,Pondok Cabe,16200000,2026-02-03
+TSI-DSK-004,Dell OptiPlex 7010,desktop,Hardware,Dell,OptiPlex 7010,DL7010X9,fair,in_use,PT. Dharma Mitra Solusi,Pondok Cabe,11000000,2025-11-20
+TSI-PRN-002,Brother DCP-L2540DW,printer,Peripheral,Brother,DCP-L2540DW,BRT254099,good,active,PT. Dharma Mitra Solusi,Ad Premier,3450000,2025-08-11
+TSI-NET-003,MikroTik hEX RB750Gr3,network,Network Equipment,MikroTik,RB750Gr3,MT750G31,good,active,PT. TSI Sertifikasi Internasional,Ad Premier,1250000,2026-03-01
+TSI-SRV-001,Dell PowerEdge T150,server,Hardware,Dell,PowerEdge T150,PE150SRV7,good,active,PT. TSI Sertifikasi Internasional,Pondok Cabe,42000000,2025-06-30
+TSI-SFW-005,Microsoft 365 Business,desktop,Software,Microsoft,,,good,active,PT. TSI Sertifikasi Internasional,Mobile,2400000,2026-01-01
+TSI-LTP-012,MacBook Air M2,laptop,Hardware,Apple,MacBook Air M2,FVFXQ1ABC,good,maintenance,PT. Dharma Mitra Solusi,Mobile,21500000,2025-09-05
