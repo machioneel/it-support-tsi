@@ -155,10 +155,12 @@ body {
   margin: 16mm;
 }
 
-/* A fleet list is twelve columns wide; portrait would squeeze it unreadably.
-   The top margin is larger than the others so the letterhead on page 1 and the
-   repeated column headings on every later page both keep clear of the edge. */
-@page renewal {
+/* Landscape sheet for wide tables — the asset renewal list and the monthly
+   ticket report both run to a dozen columns, which portrait squeezes
+   unreadably. The top margin is larger than the others so the letterhead on
+   page 1 and the repeated column headings on every later page both keep clear
+   of the edge. */
+@page wide {
   size: A4 landscape;
   margin: 18mm 12mm 12mm;
 }
@@ -229,10 +231,17 @@ body {
   }
 
   .print-landscape {
-    page: renewal;
-    /* Overrides the 6mm on .print-area — a landscape sheet is shorter, so the
-       letterhead sits closer to the top edge and needs more air. */
-    padding-top: 8mm;
+    page: wide;
+    /*
+     * Overrides the 6mm on .print-area. A landscape sheet is shorter, so the
+     * letterhead sits closer to the top edge and needs more air.
+     *
+     * This padding is the only top spacing that survives the browser's
+     * "Minimum" margin preset, which discards @page margins outright — but it
+     * applies to the FIRST page only. Pages after a break get whatever the
+     * preset allows, which is why the print dialog hint asks for "Default".
+     */
+    padding-top: 12mm;
   }
 
   /* A list long enough to run onto a second page needs its column headings

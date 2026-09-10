@@ -8,8 +8,8 @@ import ITKnowledgeBase from '@/pages/ITKnowledgeBase';
 import ITEmployees from '@/pages/ITEmployees';
 import ITReports from '@/pages/ITReports';
 import ITSettings from '@/pages/ITSettings';
-import ITLayout from '@/components/ITLayout';
-import ITAssets from './pages/ITAssets';
+import ITLayout from '@/components/layout/ITLayout';
+import ITAssets from '@/pages/ITAssets';
 
 function App() {
   return (

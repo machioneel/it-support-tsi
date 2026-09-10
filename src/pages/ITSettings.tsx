@@ -19,8 +19,8 @@ import {
   Download
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useSettings } from '../lib/useSettings';
-import ITUsers from './ITUsers';
+import { useSettings } from '@/hooks/useSettings';
+import ITUsers from '@/pages/ITUsers';
 const SETTINGS_MENU = [
   { id: 'general', icon: Settings, label: 'General', desc: 'Basic system settings' },
   { id: 'users', icon: UserCog, label: 'Users', desc: 'Manage IT staff accounts' },

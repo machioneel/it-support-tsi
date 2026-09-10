@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
-import { fetchAssetByTag, fetchAssetAssignments } from '@/lib/supabase';
-import { STATUS_CONFIG, CONDITION_CLASSES, getCategoryIcon } from '@/lib/assetConfig';
-import type { Asset } from '@/lib/types';
+import { fetchAssetByTag, fetchAssetAssignments } from '@/features/assets/api';
+import { STATUS_CONFIG, CONDITION_CLASSES, getCategoryIcon } from '@/features/assets/lib/assetConfig';
+import type { Asset } from '@/types/index';
 import { initialsOf } from '@/lib/text';
 
 type AssetWithCompany = Asset & { companies?: { company_name: string } | null };

@@ -15,18 +15,39 @@ import {
   ChevronRight,
   X,
   AlertTriangle,
+  Package,
 } from 'lucide-react';
 
-import { useEmployees } from '@/lib/useEmployees';
-import { fetchCompanies, deleteEmployee, countEmployeeReferences } from '@/lib/supabase';
-import EmployeeFormModal from '@/components/EmployeeFormModal';
-import ConfirmDialog from '@/components/ConfirmDialog';
-import SortableHeader from '@/components/SortableHeader';
-import type { SortDir } from '@/components/SortableHeader';
-import type { Company, Employee } from '@/lib/types';
+import { useEmployees } from '@/features/employees/hooks/useEmployees';
+import { deleteEmployee, countEmployeeReferences } from '@/features/employees/api';
+import { fetchCompanies } from '@/services/companies';
+import {
+  fetchAssetsByEmployee,
+  fetchActiveAssetCountsByEmployee,
+} from '@/features/assets/api';
+import type { EmployeeAssetHolding } from '@/features/assets/api';
+import { getCategoryIcon } from '@/features/assets/lib/assetConfig';
+import EmployeeFormModal from '@/features/employees/components/EmployeeFormModal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import SortableHeader from '@/components/ui/SortableHeader';
+import type { SortDir } from '@/components/ui/SortableHeader';
+import type { Company, Employee } from '@/types/index';
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('id-ID');
+}
 
 /** Sortable columns. 'company' sorts on the resolved name, not the raw uuid. */
-type SortKey = 'full_name' | 'email' | 'company' | 'division' | 'contact_number' | 'created_at';
+type SortKey =
+  | 'full_name'
+  | 'email'
+  | 'company'
+  | 'division'
+  | 'contact_number'
+  | 'assets'
+  | 'created_at';
 
 export default function ITEmployees() {
   const { employees, loading, refreshEmployees } = useEmployees();
@@ -52,11 +73,52 @@ export default function ITEmployees() {
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  // employee_id -> jumlah aset yang sedang dipegang. Satu query untuk seluruh
+  // direktori, bukan satu per baris.
+  const [assetCounts, setAssetCounts] = useState<Record<string, number>>({});
+  const [assetsUnavailable, setAssetsUnavailable] = useState(false);
+
+  // Rincian aset milik karyawan yang sedang dibuka di panel kanan.
+  const [holdings, setHoldings] = useState<EmployeeAssetHolding[]>([]);
+  const [holdingsLoading, setHoldingsLoading] = useState(false);
+
   useEffect(() => {
     fetchCompanies()
       .then((data) => setCompanies(data as Company[]))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchActiveAssetCountsByEmployee()
+      .then((counts) => {
+        setAssetCounts(counts);
+        setAssetsUnavailable(false);
+      })
+      .catch((err) => {
+        console.error('Data aset tidak dapat dimuat:', err);
+        setAssetCounts({});
+        setAssetsUnavailable(true);
+      });
+  }, [employees]);
+
+  // The cancelled flag stops a slow earlier response from overwriting a newer
+  // one when the user clicks through several people quickly.
+  useEffect(() => {
+    if (!selectedEmployee) {
+      setHoldings([]);
+      return;
+    }
+    let cancelled = false;
+    setHoldingsLoading(true);
+    fetchAssetsByEmployee(selectedEmployee.id)
+      .then((rows) => { if (!cancelled) setHoldings(rows); })
+      .catch((err) => {
+        console.error('Riwayat aset karyawan tidak dapat dimuat:', err);
+        if (!cancelled) setHoldings([]);
+      })
+      .finally(() => { if (!cancelled) setHoldingsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedEmployee]);
 
   const askDelete = (employee: Employee) => {
     setDeletingEmployee(employee);
@@ -107,8 +169,8 @@ export default function ITEmployees() {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
-      // Text reads best A-Z; a date column is most useful newest-first.
-      setSortDir(key === 'created_at' ? 'desc' : 'asc');
+      // Text reads best A-Z; dates and counts are most useful highest-first.
+      setSortDir(key === 'created_at' || key === 'assets' ? 'desc' : 'asc');
     }
     // Page 4 of a re-ordered list is meaningless.
     setCurrentPage(1);
@@ -124,6 +186,8 @@ export default function ITEmployees() {
         return employee.created_at ? new Date(employee.created_at).getTime() : null;
       case 'contact_number':
         return employee.contact_number || null;
+      case 'assets':
+        return assetCounts[employee.id] ?? 0;
       default:
         return employee[sortKey];
     }
@@ -152,6 +216,9 @@ export default function ITEmployees() {
   const paginatedEmployees = sortedEmployees.slice(startIndex, endIndex);
 
   const withContact = employees.filter((e) => !!e.contact_number).length;
+
+  const activeHoldings = holdings.filter((h) => h.active);
+  const pastHoldings = holdings.filter((h) => !h.active);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -231,6 +298,13 @@ export default function ITEmployees() {
             </div>
           </div>
 
+          {assetsUnavailable && (
+            <div className="px-4 py-3 border-b border-amber-200/60 dark:border-amber-700/40 bg-amber-50/70 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-400">
+              Data aset tidak dapat dimuat — kolom "Aset" dikosongkan.
+              Jalankan migrasi assets untuk membuat tabel asset_assignments.
+            </div>
+          )}
+
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left whitespace-nowrap">
@@ -241,15 +315,16 @@ export default function ITEmployees() {
                   <SortableHeader label="Company" columnKey="company" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />
                   <SortableHeader label="Division" columnKey="division" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />
                   <SortableHeader label="Contact" columnKey="contact_number" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />
+                  <SortableHeader label="Aset" columnKey="assets" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />
                   <SortableHeader label="Registered" columnKey="created_at" activeKey={sortKey} direction={sortDir} onSort={toggleSort} />
                   <th className="px-5 py-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
                 {loading ? (
-                  <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">Loading employees...</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">Loading employees...</td></tr>
                 ) : paginatedEmployees.length === 0 ? (
-                  <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No employees match your filter.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">No employees match your filter.</td></tr>
                 ) : paginatedEmployees.map((employee) => (
                   <tr
                     key={employee.id}
@@ -281,6 +356,18 @@ export default function ITEmployees() {
                       </div>
                     </td>
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{employee.contact_number || '-'}</td>
+                    <td className="px-5 py-3">
+                      {assetsUnavailable ? (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      ) : (assetCounts[employee.id] ?? 0) === 0 ? (
+                        <span className="text-gray-400 dark:text-gray-500">-</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50">
+                          <Package className="w-3 h-3" />
+                          {assetCounts[employee.id]}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{employee.created_at ? new Date(employee.created_at).toLocaleDateString() : '-'}</td>
                     <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
@@ -391,6 +478,70 @@ export default function ITEmployees() {
                 <InfoRow icon={Briefcase} label="Division" value={selectedEmployee.division} />
                 <InfoRow icon={Phone} label="Contact" value={selectedEmployee.contact_number || '-'} />
               </div>
+            </div>
+
+            <div className="h-px bg-gray-100 dark:bg-gray-700/50"></div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-3 flex items-center gap-2">
+                Aset Dipegang
+                {!holdingsLoading && activeHoldings.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-[11px] font-semibold">
+                    {activeHoldings.length}
+                  </span>
+                )}
+              </h3>
+
+              {holdingsLoading ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Memuat...</p>
+              ) : activeHoldings.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Tidak ada aset yang sedang dipegang.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {activeHoldings.map((h) => {
+                    const Icon = getCategoryIcon(h.category ?? '');
+                    return (
+                      <li key={h.assignmentId} className="flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {h.assetName}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {h.assetTag}
+                          </div>
+                          <div className="text-xs text-gray-400 dark:text-gray-500">
+                            sejak {formatDate(h.assignedDate)}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {pastHoldings.length > 0 && (
+                <details className="mt-3">
+                  <summary className="text-xs font-medium text-blue-600 hover:text-blue-700 cursor-pointer">
+                    Pernah memegang {pastHoldings.length} aset lain
+                  </summary>
+                  <ul className="mt-2 space-y-1.5">
+                    {pastHoldings.map((h) => (
+                      <li key={h.assignmentId} className="text-xs">
+                        <span className="text-gray-700 dark:text-gray-200">{h.assetName}</span>
+                        <span className="text-gray-400 dark:text-gray-500 font-mono"> · {h.assetTag}</span>
+                        <div className="text-gray-400 dark:text-gray-500">
+                          {formatDate(h.assignedDate)} → {formatDate(h.returnedDate)}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
 
             <div className="h-px bg-gray-100 dark:bg-gray-700/50"></div>

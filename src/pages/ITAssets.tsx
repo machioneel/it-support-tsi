@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAssets } from '../lib/useAssets';
+import { useAssets } from '@/features/assets/hooks/useAssets';
 import {
   Search, Plus, Edit2, Trash2, ChevronDown, Package, Eye, QrCode,
   CheckCircle, AlertCircle, Clock, UserCheck, Undo2, FileText, Download, Upload,
@@ -9,31 +9,32 @@ import {
   STATUS_CONFIG,
   ASSET_STATUS_VALUES,
   getCategoryIcon,
-} from '../lib/assetConfig';
-import AssetDetailModal from '../components/AssetDetailModal';
-import AssetFormModal from '../components/AssetFormModal';
-import ConfirmDialog from '../components/ConfirmDialog';
-import AssetBarcodeModal from '../components/AssetBarcodeModal';
-import ReturnAssetDialog from '../components/ReturnAssetDialog';
-import AssetHandoverDoc from '../components/AssetHandoverDoc';
-import AssetReturnDoc from '../components/AssetReturnDoc';
-import AssetImportDialog from '../components/AssetImportDialog';
-import AssetRenewalReport from '../components/AssetRenewalReport';
-import SortableHeader from '../components/SortableHeader';
-import type { SortDir } from '../components/SortableHeader';
-import { deleteAsset, fetchActiveAssignments, fetchCompanies } from '../lib/supabase';
-import type { ActiveAssignment } from '../lib/supabase';
-import { initialsOf } from '../lib/text';
-import type { Asset, Company } from '../lib/types';
-import { buildAssetCsv, downloadCsv } from '../lib/assetCsv';
-import type { MovementRecord } from '../lib/assetMovement';
-import { DEPRECIATION_YEARS } from '../lib/depreciation';
+} from '@/features/assets/lib/assetConfig';
+import AssetDetailModal from '@/features/assets/components/AssetDetailModal';
+import AssetFormModal from '@/features/assets/components/AssetFormModal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AssetBarcodeModal from '@/features/assets/components/AssetBarcodeModal';
+import ReturnAssetDialog from '@/features/assets/components/ReturnAssetDialog';
+import AssetHandoverDoc from '@/features/assets/components/AssetHandoverDoc';
+import AssetReturnDoc from '@/features/assets/components/AssetReturnDoc';
+import AssetImportDialog from '@/features/assets/components/AssetImportDialog';
+import AssetRenewalReport from '@/features/assets/components/AssetRenewalReport';
+import SortableHeader from '@/components/ui/SortableHeader';
+import type { SortDir } from '@/components/ui/SortableHeader';
+import { deleteAsset, fetchActiveAssignments } from '@/features/assets/api';
+import { fetchCompanies } from '@/services/companies';
+import type { ActiveAssignment } from '@/features/assets/api';
+import { initialsOf } from '@/lib/text';
+import type { Asset, Company } from '@/types/index';
+import { buildAssetCsv, downloadCsv } from '@/features/assets/lib/assetCsv';
+import type { MovementRecord } from '@/features/assets/lib/assetMovement';
+import { DEPRECIATION_YEARS } from '@/features/assets/lib/depreciation';
 import {
   RENEWAL_AGE_YEARS,
   assetAgeMonths,
   formatAge,
   isDueForRenewal,
-} from '../lib/assetAge';
+} from '@/features/assets/lib/assetAge';
 
 type AssetView = 'all' | 'renewal';
 
@@ -124,6 +125,51 @@ function GroupTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** One end of the age range: a years box and a months box. */
+function AgeBound({
+  label,
+  years,
+  months,
+  onYears,
+  onMonths,
+}: {
+  label: string;
+  years: string;
+  months: string;
+  onYears: (v: string) => void;
+  onMonths: (v: string) => void;
+}) {
+  const box =
+    'w-16 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-14 text-xs text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
+      <input
+        type="number"
+        min={0}
+        value={years}
+        onChange={(e) => onYears(e.target.value)}
+        placeholder="0"
+        aria-label={`${label} — tahun`}
+        className={box}
+      />
+      <span className="text-xs text-gray-500 dark:text-gray-400">thn</span>
+      <input
+        type="number"
+        min={0}
+        max={11}
+        value={months}
+        onChange={(e) => onMonths(e.target.value)}
+        placeholder="0"
+        aria-label={`${label} — bulan`}
+        className={box}
+      />
+      <span className="text-xs text-gray-500 dark:text-gray-400">bln</span>
+    </div>
+  );
+}
+
 function FilterGroup({
   title,
   options,
@@ -166,10 +212,13 @@ export default function ITAssets() {
   const { assets, loading, refetch } = useAssets();
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<Record<FilterKey, string[]>>(EMPTY_FILTERS);
-  // Age bounds in whole years, held as the raw input strings so the fields can
-  // be empty (meaning "unbounded") rather than forced to a number.
-  const [ageMin, setAgeMin] = useState('');
-  const [ageMax, setAgeMax] = useState('');
+  // Age bounds, held as raw input strings so each box can be empty (meaning
+  // "unbounded") rather than forced to a number. Years and months are separate
+  // boxes so a bound can be as coarse or as precise as the question needs.
+  const [ageMinYears, setAgeMinYears] = useState('');
+  const [ageMinMonths, setAgeMinMonths] = useState('');
+  const [ageMaxYears, setAgeMaxYears] = useState('');
+  const [ageMaxMonths, setAgeMaxMonths] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isNewAssetOpen, setIsNewAssetOpen] = useState(false);
@@ -225,7 +274,10 @@ export default function ITAssets() {
   // current page number — page 4 of a re-filtered list means nothing.
   useEffect(() => {
     setCurrentPage(1);
-  }, [view, searchTerm, filters, ageMin, ageMax, assignmentFilter, sortKey, sortDir, rowsPerPage]);
+  }, [
+    view, searchTerm, filters, assignmentFilter, sortKey, sortDir, rowsPerPage,
+    ageMinYears, ageMinMonths, ageMaxYears, ageMaxMonths,
+  ]);
 
   // asset_id -> whoever currently holds it.
   const [holders, setHolders] = useState<Record<string, ActiveAssignment>>({});
@@ -304,13 +356,34 @@ export default function ITAssets() {
       };
     });
 
-  // Bounds are whole years and inclusive at both ends: "3 sampai 5" keeps an
-  // asset that is 5 thn 11 bln, because it is still in its fifth year.
-  const minYears = ageMin === '' ? null : Number(ageMin);
-  const maxYears = ageMax === '' ? null : Number(ageMax);
-  const ageBounded =
-    (minYears !== null && Number.isFinite(minYears)) ||
-    (maxYears !== null && Number.isFinite(maxYears));
+  // Both bounds are inclusive, expressed in months so years and months combine
+  // into one number to compare against.
+  const boxValue = (raw: string) => {
+    if (raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  const minY = boxValue(ageMinYears);
+  const minM = boxValue(ageMinMonths);
+  const maxY = boxValue(ageMaxYears);
+  const maxM = boxValue(ageMaxMonths);
+
+  const minMonths = minY === null && minM === null ? null : (minY ?? 0) * 12 + (minM ?? 0);
+
+  /*
+   * An empty month box on the UPPER bound means "to the end of that year", so
+   * "sampai 5 thn" still keeps an asset of 5 thn 11 bln — the whole-year
+   * reading people expect. Typing a month makes the bound exact instead.
+   */
+  const maxMonths =
+    maxY === null && maxM === null
+      ? null
+      : maxM === null
+        ? (maxY ?? 0) * 12 + 11
+        : (maxY ?? 0) * 12 + maxM;
+
+  const ageBounded = minMonths !== null || maxMonths !== null;
 
   const filteredAssets = scopedAssets.filter(asset => {
     const holder = holders[asset.id];
@@ -341,12 +414,19 @@ export default function ITAssets() {
       // An asset with no purchase date has no age, so it cannot satisfy a
       // range. Dropping it is the honest answer; counting it as new is not.
       if (months === null) return false;
-      if (minYears !== null && months < minYears * 12) return false;
-      if (maxYears !== null && months >= (maxYears + 1) * 12) return false;
+      if (minMonths !== null && months < minMonths) return false;
+      if (maxMonths !== null && months > maxMonths) return false;
     }
 
     return true;
   });
+
+  const clearAgeRange = () => {
+    setAgeMinYears('');
+    setAgeMinMonths('');
+    setAgeMaxYears('');
+    setAgeMaxMonths('');
+  };
 
   // ---- what is currently narrowing the list, as removable chips -----------
   const activeChips: { id: string; label: string; onRemove: () => void }[] = [];
@@ -369,22 +449,17 @@ export default function ITAssets() {
   }
   if (ageBounded) {
     const label =
-      minYears !== null && maxYears !== null
-        ? `Umur: ${minYears}–${maxYears} thn`
-        : minYears !== null
-          ? `Umur: ≥ ${minYears} thn`
-          : `Umur: ≤ ${maxYears} thn`;
-    activeChips.push({
-      id: 'age',
-      label,
-      onRemove: () => { setAgeMin(''); setAgeMax(''); },
-    });
+      minMonths !== null && maxMonths !== null
+        ? `Umur: ${formatAge(minMonths)} – ${formatAge(maxMonths)}`
+        : minMonths !== null
+          ? `Umur: ≥ ${formatAge(minMonths)}`
+          : `Umur: ≤ ${formatAge(maxMonths as number)}`;
+    activeChips.push({ id: 'age', label, onRemove: clearAgeRange });
   }
 
   const clearAllFilters = () => {
     setFilters(EMPTY_FILTERS);
-    setAgeMin('');
-    setAgeMax('');
+    clearAgeRange();
     setAssignmentFilter('All');
   };
 
@@ -672,39 +747,50 @@ export default function ITAssets() {
                     </div>
 
                     <div className="mt-5 pt-4 border-t border-gray-200/70 dark:border-gray-700/50">
-                      <GroupTitle>Rentang umur (tahun)</GroupTitle>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={ageMin}
-                          onChange={(e) => setAgeMin(e.target.value)}
-                          placeholder="min"
-                          className="w-24 px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
-                        <span className="text-gray-400">–</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={ageMax}
-                          onChange={(e) => setAgeMax(e.target.value)}
-                          placeholder="maks"
-                          className="w-24 px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        />
+                      <div className="flex items-center justify-between">
+                        <GroupTitle>Rentang umur</GroupTitle>
                         {ageBounded && (
                           <button
-                            onClick={() => { setAgeMin(''); setAgeMax(''); }}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                            onClick={clearAgeRange}
+                            className="text-xs font-medium text-blue-600 hover:text-blue-700 mb-2"
                           >
                             Reset
                           </button>
                         )}
                       </div>
+
+                      <div className="space-y-2">
+                        <AgeBound
+                          label="Dari"
+                          years={ageMinYears}
+                          months={ageMinMonths}
+                          onYears={setAgeMinYears}
+                          onMonths={setAgeMinMonths}
+                        />
+                        <AgeBound
+                          label="Sampai"
+                          years={ageMaxYears}
+                          months={ageMaxMonths}
+                          onYears={setAgeMaxYears}
+                          onMonths={setAgeMaxMonths}
+                        />
+                      </div>
+
+                      {ageBounded && (
+                        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mt-2">
+                          Menampilkan aset berumur{' '}
+                          {minMonths !== null ? formatAge(minMonths) : '0 bln'}
+                          {' sampai '}
+                          {maxMonths !== null ? formatAge(maxMonths) : 'tak terbatas'}.
+                        </p>
+                      )}
+
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Dihitung dari tanggal pembelian, inklusif di kedua ujung — "3–5"
-                        masih memuat aset berumur 5 thn 11 bln. Aset tanpa tanggal
-                        pembelian tidak punya umur, jadi tidak akan muncul selama rentang
-                        ini aktif.
+                        Dihitung dari tanggal pembelian dan inklusif di kedua ujung. Kotak
+                        bulan boleh dikosongkan: pada batas atas artinya "sampai akhir
+                        tahun itu", jadi "sampai 5 thn" masih memuat aset berumur
+                        5 thn 11 bln. Aset tanpa tanggal pembelian tidak punya umur,
+                        sehingga tidak muncul selama rentang ini aktif.
                       </p>
                     </div>
                   </div>

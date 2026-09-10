@@ -6,10 +6,10 @@ import { Link } from 'react-router-dom';
 
 
 import { useState } from 'react';
-import { useArticles } from '@/lib/useArticles';
-import type { Article } from '@/lib/types';
-import NewArticleModal from '@/components/NewArticleModal';
-import ArticleModal from '@/components/ArticleModal';
+import { useArticles } from '@/features/knowledge-base/hooks/useArticles';
+import type { Article } from '@/types/index';
+import NewArticleModal from '@/features/knowledge-base/components/NewArticleModal';
+import ArticleModal from '@/features/knowledge-base/components/ArticleModal';
 
 export default function ITKnowledgeBase() {
   const { articles, loading, error, refreshArticles } = useArticles();

@@ -10,7 +10,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useReports } from '../lib/useReports';
+import { useReports } from '@/hooks/useReports';
 
 export default function ITReports() {
   const { metrics, loading } = useReports();

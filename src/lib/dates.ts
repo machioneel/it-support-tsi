@@ -28,7 +28,18 @@ export function isoToDateInput(value: string | null | undefined): string {
 
 /** Today as a 'YYYY-MM-DD' input value. */
 export function todayInput(): string {
-  return isoToDateInput(new Date().toISOString());
+  return dateToInput(new Date());
+}
+
+/**
+ * A Date to a `date` input value, in LOCAL time.
+ *
+ * Not `toISOString().slice(0, 10)`: that converts to UTC first, so anywhere east
+ * of Greenwich an evening date lands on the following day.
+ */
+export function dateToInput(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /** True when both timestamps fall on the same local calendar day. */
@@ -37,4 +48,25 @@ export function isSameLocalDay(
   b: string | null | undefined
 ): boolean {
   return isoToDateInput(a) === isoToDateInput(b);
+}
+
+/**
+ * `datetime-local` input <-> ISO.
+ *
+ * Separate from the date-only helpers above because some fields need the time
+ * of day: a ticket's completion time feeds the resolution duration, and
+ * rounding it to midday would make every same-day fix look like it took hours.
+ */
+export function isoToDateTimeInput(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function dateTimeInputToISO(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }

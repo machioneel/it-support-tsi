@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail, Upload, X, CheckCircle2, Loader2, LifeBuoy, Search, FileText, Eye, ChevronRight, ShieldCheck, Headphones } from 'lucide-react';
-import { supabase, checkEmployeeEmail, createTicket, uploadAttachment } from '@/lib/supabase';
-import { compressImage } from '@/lib/utils';
-import { useArticles } from '@/lib/useArticles';
-import type { Company, Employee, Article } from '@/lib/types';
-import ArticleModal from '@/components/ArticleModal';
+import { createTicket, uploadAttachment } from '@/features/tickets/api';
+import { checkEmployeeEmail } from '@/services/auth';
+import { supabase } from '@/services/supabase';
+import { compressImage } from '@/lib/format';
+import { useArticles } from '@/features/knowledge-base/hooks/useArticles';
+import type { Company, Employee, Article } from '@/types/index';
+import ArticleModal from '@/features/knowledge-base/components/ArticleModal';
 
 
 

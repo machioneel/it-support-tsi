@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import { useUsers } from '@/lib/useUsers';
-import AddUserModal from '@/components/AddUserModal';
-import type { User } from '@/lib/types';
+import { useUsers } from '@/hooks/useUsers';
+import AddUserModal from '@/features/users/components/AddUserModal';
+import type { User } from '@/types/index';
 
 interface ITUsersProps {
   /** Rendered inside the Settings page: use a section header and stack the detail panel. */

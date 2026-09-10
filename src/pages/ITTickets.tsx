@@ -6,13 +6,15 @@ import {
   ChevronDown, 
   MoreVertical,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileBarChart
 } from 'lucide-react';
-import { PriorityBadge, StatusBadge } from './ITDashboard';
-import { useTickets } from '@/lib/useTickets';
-import TicketDetailModal from '@/components/TicketDetailModal';
-import NewTicketModal from '@/components/NewTicketModal';
-import type { Ticket } from '@/lib/types';
+import { PriorityBadge, StatusBadge } from '@/features/tickets/components/TicketBadges';
+import { useTickets } from '@/features/tickets/hooks/useTickets';
+import TicketDetailModal from '@/features/tickets/components/TicketDetailModal';
+import NewTicketModal from '@/features/tickets/components/NewTicketModal';
+import TicketPeriodReport from '@/features/tickets/components/TicketPeriodReport';
+import type { Ticket } from '@/types/index';
 
 export default function ITTickets() {
   const { tickets, loading, error, refreshTickets } = useTickets();
@@ -35,6 +37,7 @@ export default function ITTickets() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const handleRowClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
@@ -126,6 +129,14 @@ export default function ITTickets() {
             <button className="flex items-center gap-2 px-4 py-2 liquid-card rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
               <Download className="w-4 h-4" />
               <span>Export</span>
+            </button>
+            <button
+              onClick={() => setIsReportOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 liquid-card rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors"
+              title="Cetak laporan tiket per rentang tanggal"
+            >
+              <FileBarChart className="w-4 h-4" />
+              <span>Cetak Laporan</span>
             </button>
             <button 
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 transition-colors"
@@ -363,6 +374,12 @@ export default function ITTickets() {
           </FilterSection>
         </div>
       </div>
+
+      <TicketPeriodReport
+        tickets={tickets}
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+      />
 
       <NewTicketModal 
         isOpen={isNewTicketModalOpen} 
