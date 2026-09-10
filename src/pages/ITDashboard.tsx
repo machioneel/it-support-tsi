@@ -30,6 +30,46 @@ const ASSET_BAR_COLORS: Record<string, string> = {
   lost:        'bg-red-500',
 };
 
+/**
+ * Rentang waktu berbasis KALENDER, bukan jendela bergulir.
+ *
+ * Versi sebelumnya memakai "7 hari terakhir" tapi menamainya "This week", dan
+ * defaultnya itu — sehingga register berisi 30 tiket tertanggal 26 Agustus
+ * tampil sebagai nol bulat pada 10 September. Dashboard yang menunjukkan nol
+ * karena filter tersembunyi lebih menyesatkan daripada yang menampilkan semua.
+ */
+type RangeKey = 'all' | 'today' | 'week' | 'month' | 'year';
+
+const RANGES: { key: RangeKey; label: string }[] = [
+  { key: 'all',   label: 'Semua waktu' },
+  { key: 'today', label: 'Hari ini' },
+  { key: 'week',  label: 'Minggu ini' },
+  { key: 'month', label: 'Bulan ini' },
+  { key: 'year',  label: 'Tahun ini' },
+];
+
+/** Awal rentang dalam waktu lokal; null berarti tanpa batas bawah. */
+function rangeStart(key: RangeKey, now: Date): Date | null {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (key) {
+    case 'today':
+      return midnight;
+    case 'week': {
+      // Minggu dimulai Senin, sesuai kebiasaan di sini.
+      const daysSinceMonday = (midnight.getDay() + 6) % 7;
+      return new Date(midnight.getFullYear(), midnight.getMonth(), midnight.getDate() - daysSinceMonday);
+    }
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case 'year':
+      return new Date(now.getFullYear(), 0, 1);
+    default:
+      return null;
+  }
+}
+
+const STATUS_FILTERS = ['All', 'Open', 'In Progress', 'Pending', 'Resolved', 'Closed'];
+
 const STATUS_SLICES = [
   { key: 'Open',        label: 'Open',        dot: 'bg-blue-500',   hex: '#3B82F6' },
   { key: 'In Progress', label: 'Dikerjakan',  dot: 'bg-amber-500',  hex: '#F59E0B' },
@@ -44,7 +84,7 @@ export default function ITDashboard() {
   const { openNewTicketModal } = useOutletContext<{ openNewTicketModal: () => void }>();
 
   const [timeFilterOpen, setTimeFilterOpen] = useState(false);
-  const [timeRange, setTimeRange] = useState('This week');
+  const [timeRange, setTimeRange] = useState<RangeKey>('all');
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -55,17 +95,25 @@ export default function ITDashboard() {
     return <div className="p-8 text-center text-red-500">Error: {error.message}</div>;
   }
 
-  const filteredTickets = tickets.filter((t) => {
-    if (statusFilter !== 'All' && t.ticket_status !== statusFilter) return false;
-    const ticketDate = new Date(t.created_at);
-    const now = new Date();
-    if (timeRange === 'This week') {
-      if (ticketDate < new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)) return false;
-    } else if (timeRange === 'This month') {
-      if (ticketDate < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)) return false;
-    }
-    return true;
-  });
+  // Satu jam acuan untuk seluruh render, supaya batas rentang tidak bergeser
+  // di tengah perhitungan.
+  const now = new Date();
+  const startOfRange = rangeStart(timeRange, now);
+
+  const inRange = (t: (typeof tickets)[number]) => {
+    if (!startOfRange) return true;
+    const d = new Date(t.created_at);
+    return !Number.isNaN(d.getTime()) && d >= startOfRange;
+  };
+
+  const rangeTickets = tickets.filter(inRange);
+  const filteredTickets = rangeTickets.filter(
+    (t) => statusFilter === 'All' || t.ticket_status === statusFilter
+  );
+
+  // Berapa yang tersembunyi karena rentang waktunya — supaya angka nol tidak
+  // pernah tampak seperti "belum ada tiket sama sekali".
+  const hiddenByRange = tickets.length - rangeTickets.length;
 
   // ---- tickets -----------------------------------------------------------
   const totalTickets = filteredTickets.length;
@@ -76,13 +124,18 @@ export default function ITDashboard() {
     (t) => t.ticket_status === 'Resolved' || t.ticket_status === 'Closed'
   ).length;
 
-  const today = new Date().toISOString().split('T')[0];
-  const resolvedToday = filteredTickets.filter(
-    (t) => t.ticket_status === 'Resolved' && t.finished_at?.startsWith(today)
-  ).length;
-
   const activeTickets = openTickets + inProgressTickets;
-  const recentTickets = filteredTickets.slice(0, 5);
+  /*
+   * fetchTickets sudah mengurutkan created_at menurun, tetapi ketiga puluh tiket
+   * hasil impor berbagi satu timestamp yang sama persis — tanpa pemecah seri,
+   * "5 terbaru" bisa berubah-ubah antar muat. Nomor tiket menjadi urutan kedua.
+   */
+  const recentTickets = [...filteredTickets]
+    .sort((a, b) => {
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return diff !== 0 ? diff : b.ticket_number.localeCompare(a.ticket_number, 'id', { numeric: true });
+    })
+    .slice(0, 5);
 
   const pct = (n: number) => (totalTickets ? Math.round((n / totalTickets) * 100) : 0);
   const statusCounts: Record<string, number> = {
@@ -129,8 +182,17 @@ export default function ITDashboard() {
   // ---- assets ------------------------------------------------------------
   const totalAssets = assets.length;
   const assetsInUse = assets.filter((a) => a.status === 'in_use').length;
+  /*
+   * Status dan kondisi adalah dua kolom yang berdiri sendiri, jadi satu aset
+   * bisa sekaligus 'maintenance' dan berkondisi 'damaged'. Menjumlahkan kedua
+   * hitungan mentah akan menghitungnya dua kali, sehingga angkanya bisa
+   * melebihi jumlah aset yang benar-benar bermasalah. Kelompok kedua karena itu
+   * mengecualikan yang sudah masuk maintenance, dan keduanya berjumlah tepat.
+   */
   const assetsInMaintenance = assets.filter((a) => a.status === 'maintenance').length;
-  const assetsDamaged = assets.filter((a) => a.condition === 'damaged' || a.status === 'lost').length;
+  const assetsDamaged = assets.filter(
+    (a) => a.status !== 'maintenance' && (a.condition === 'damaged' || a.status === 'lost')
+  ).length;
   const assetsNeedingAttention = assetsInMaintenance + assetsDamaged;
 
   const assetStatusCounts = ASSET_STATUS_VALUES.map((status) => ({
@@ -157,20 +219,27 @@ export default function ITDashboard() {
               className="flex items-center gap-2 px-4 py-2 liquid-card rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors"
             >
               <Filter className="w-4 h-4" />
-              <span>{statusFilter === 'All' ? 'Filter' : statusFilter}</span>
+              <span>{statusFilter === 'All' ? 'Semua status' : statusFilter}</span>
             </button>
             {statusFilterOpen && (
-              <div className="absolute right-0 mt-2 w-48 liquid-panel rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1">
-                {['All', 'Open', 'In Progress', 'Pending', 'Resolved'].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setStatusFilter(s); setStatusFilterOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setStatusFilterOpen(false)} />
+                <div className="absolute right-0 mt-2 w-48 liquid-panel rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1">
+                  {STATUS_FILTERS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setStatusFilter(s); setStatusFilterOpen(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                        statusFilter === s
+                          ? 'text-blue-600 dark:text-blue-400 font-medium'
+                          : 'text-gray-700 dark:text-gray-200'
+                      }`}
+                    >
+                      {s === 'All' ? 'Semua status' : s}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -179,25 +248,48 @@ export default function ITDashboard() {
               onClick={() => { setTimeFilterOpen(!timeFilterOpen); setStatusFilterOpen(false); }}
               className="flex items-center gap-2 px-4 py-2 liquid-card rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors"
             >
-              <span>{timeRange}</span>
+              <span>{RANGES.find((r) => r.key === timeRange)?.label}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
             {timeFilterOpen && (
-              <div className="absolute right-0 mt-2 w-48 liquid-panel rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1">
-                {['This week', 'This month', 'All time'].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setTimeRange(t); setTimeFilterOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setTimeFilterOpen(false)} />
+                <div className="absolute right-0 mt-2 w-48 liquid-panel rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50 py-1">
+                  {RANGES.map((r) => (
+                    <button
+                      key={r.key}
+                      onClick={() => { setTimeRange(r.key); setTimeFilterOpen(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                        timeRange === r.key
+                          ? 'text-blue-600 dark:text-blue-400 font-medium'
+                          : 'text-gray-700 dark:text-gray-200'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
       </div>
+
+      {hiddenByRange > 0 && (
+        <div className="p-3 rounded-lg bg-blue-50/70 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 text-sm text-blue-800 dark:text-blue-300 flex items-center justify-between gap-3">
+          <span>
+            <span className="font-semibold">{hiddenByRange}</span> tiket tidak tampil karena
+            berada di luar rentang{' '}
+            <span className="font-medium">{RANGES.find((r) => r.key === timeRange)?.label}</span>.
+          </span>
+          <button
+            onClick={() => setTimeRange('all')}
+            className="shrink-0 font-medium hover:underline"
+          >
+            Tampilkan semua waktu
+          </button>
+        </div>
+      )}
 
       {assetsError && (
         <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 text-sm text-amber-700 dark:text-amber-400">
@@ -217,7 +309,11 @@ export default function ITDashboard() {
         <StatCard
           title="Tiket Selesai"
           value={resolvedTickets}
-          subtitle={`${resolvedToday} selesai hari ini`}
+          subtitle={
+            totalTickets === 0
+              ? 'belum ada tiket'
+              : `dari ${totalTickets} tiket · ${pct(resolvedTickets)}%`
+          }
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
           iconBg="bg-emerald-50 dark:bg-emerald-900/30"
         />
